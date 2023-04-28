@@ -7,13 +7,15 @@ def main(page: ft.Page):
 
     userInfo = ft.TextField(label="Username")
     passInfo = ft.TextField(label="Password", password=True, can_reveal_password=True)
-    error_prompt = ft.Text("ASDFJHAKDSF", visible=False)
+    error_prompt = ft.Text("Username or Password is Incorrect", visible=False)
 
     def user_auth(_):
         if userInfo.value == "ABC" and passInfo.value == "123":
             page.go("/main")
         else:
             error_prompt.visible=True
+            userInfo.value = ""
+            passwordInfo.value = ""
         page.update()
 
     def route_change(route):
@@ -23,10 +25,10 @@ def main(page: ft.Page):
             page.views.append(
                 ft.View(
                     "/auth",
-                    [ft.Column(controls=[   ft.Text(appName),
+                    [ft.Column(controls=[   ft.Container(content=ft.Text(appName), alignment= ft.alignment.center),
                                             userInfo,
                                             passInfo,
-                                            ft.FloatingActionButton(text="LOGIN", on_click=user_auth)]),
+                                            ft.FloatingActionButton(text="LOGIN", on_click=user_auth)], expand= True),
                                             error_prompt]
                 )
             )
