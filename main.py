@@ -1,21 +1,21 @@
 import flet as ft
 
 appName = "Nun Shark"
-
 def main(page: ft.Page):
     page.title = appName
-
-    userInfo = ft.TextField(label="Username")
-    passInfo = ft.TextField(label="Password", password=True, can_reveal_password=True)
-    error_prompt = ft.Text("Username or Password is Incorrect", visible=False)
+    userInfo = ft.TextField(icon=ft.icons.PERSON, label="Username")
+    passInfo = ft.TextField(icon=ft.icons.PASSWORD, label="Password", password=True, can_reveal_password=True)
 
     def user_auth(_):
-        if userInfo.value == "ABC" and passInfo.value == "123":
+        if userInfo.value == "admin" and passInfo.value == "leafa":
             page.go("/main")
         else:
-            error_prompt.visible=True
-            userInfo.value = ""
-            passwordInfo.value = ""
+            page.snack_bar = ft.SnackBar(
+                ft.Text('Username or Password is Incorrect!',
+                        color="#ff0000"),
+                bgcolor="#ffcccb")
+            page.snack_bar.open = True
+        passInfo.value = ""
         page.update()
 
     def route_change(route):
@@ -25,11 +25,12 @@ def main(page: ft.Page):
             page.views.append(
                 ft.View(
                     "/auth",
-                    [ft.Column(controls=[   ft.Container(content=ft.Text(appName), alignment= ft.alignment.center),
+                    [ft.Column(controls=[   ft.Container(content=ft.Text(appName, size=50), alignment= ft.alignment.bottom_center, height=200),
                                             userInfo,
                                             passInfo,
-                                            ft.FloatingActionButton(text="LOGIN", on_click=user_auth)], expand= True),
-                                            error_prompt]
+                                            ft.Container(content=ft.FloatingActionButton(text="LOGIN", on_click=user_auth, expand=True), alignment=ft.alignment.center)]
+                        )
+                    ]
                 )
             )
         elif page.route == "/main":
@@ -37,7 +38,13 @@ def main(page: ft.Page):
             page.views.append(
                 ft.View(
                     "/main",
-                    [ft.IconButton(ft.icons.DARK_MODE_OUTLINED, on_click=lambda _: page.go("/store"))]
+                    [ft.Column(controls=[ft.Container(ft.Row(controls=[ft.Text(f'Welcome Back, {userInfo.value}!', expand=True),
+                                                                       ft.IconButton(ft.icons.LOGOUT, on_click=lambda _: page.go('/auth'))]),
+                                                      bgcolor=ft.colors.BLUE),
+                                        ft.Container(alignment = ft.alignment.center,
+                                                    content=ft.Row(alignment=ft.MainAxisAlignment.CENTER,
+                                                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                                                            controls=[ft.FloatingActionButton(icon=ft.icons.ADD, text='Add')]))])]
                 )
             )
         if page.route == "/store":
@@ -52,7 +59,11 @@ def main(page: ft.Page):
 
         page.update()
 
+    def YPRESSENTER(_: ft.KeyboardEvent):
+        if _.key == 'Enter' and page.route == '/auth':
+            user_auth(_)
 
+    page.on_keyboard_event = YPRESSENTER
     page.route = "/auth"
     page.on_route_change = route_change
     page.go(page.route)
