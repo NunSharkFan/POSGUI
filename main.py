@@ -1,6 +1,7 @@
 import flet as ft
 from functools import reduce
 from typing import Callable
+import os
 
 appName = "Nun Shark POS System"
 
@@ -12,6 +13,13 @@ class Product:
         self.stocks = stocks
         self.image = image
     
+class CartItem:
+    def __init__(self, product:Product, quantity: int):
+        self.product = product
+        self.quantity = quantity
+
+    def subtotal(self):
+        return self.product.price * self.quantity
 
 def main(page: ft.Page):
     page.title = appName
@@ -20,10 +28,10 @@ def main(page: ft.Page):
     def theme_change(_):
         if page.theme_mode == ft.ThemeMode.LIGHT:
             page.theme_mode = ft.ThemeMode.DARK
-            themeIcon.icon = ft.icons.DARK_MODE
+            themeIcon.icon = ft.icons.DARK_MODE_OUTLINED
         else:
             page.theme_mode = ft.ThemeMode.LIGHT
-            themeIcon.icon = ft.icons.LIGHT_MODE
+            themeIcon.icon = ft.icons.LIGHT_MODE_OUTLINED
         page.update()
 
     def user_auth(_):
@@ -41,7 +49,7 @@ def main(page: ft.Page):
         passInfo.value = ""
         page.update()
 
-    themeIcon = ft.IconButton(icon = ft.icons.LIGHT_MODE,
+    themeIcon = ft.IconButton(icon = ft.icons.LIGHT_MODE_OUTLINED,
                               on_click = theme_change)
 
     userInfo = ft.TextField(icon = ft.icons.PERSON,
@@ -71,15 +79,16 @@ def main(page: ft.Page):
                             alignment=ft.MainAxisAlignment.CENTER,
                             horizontal_alignment=ft.CrossAxisAlignment.CENTER))
 
-    
     def route_change(route):
         page.views.clear()
         if page.route == "/auth":
             page.title = "AUTH"
             page.views.append(
                 ft.View("/auth",
-                        [ft.Column(controls = [ft.Container(content = ft.Text(appName,
-                                                                              size=50),
+                        [ft.Column(controls = [ft.Container(content = ft.Row(alignment = ft.MainAxisAlignment.CENTER,
+                                                                             controls = [ft.Text(appName,
+                                                                                                 size = 50),
+                                                                                         themeIcon]),
                                                             alignment = ft.alignment.bottom_center,
                                                             height=200),
                                                userInfo,
@@ -100,86 +109,80 @@ def main(page: ft.Page):
                                     lambda e: page.go('/auth'))
             page.views.append(
                 ft.View("/main",
-                        [ft.Container(content = ft.Row(controls = [ft.Text(value = f'Welcome Back, {userInfo.value}!',
-                                                                           expand = True),
-                                                                   themeIcon]),
-                                      bgcolor = ft.colors.BLUE_ACCENT_400),
-                         ft.Column(controls = [ft.Row(controls = [storeCard,
-                                                                  historyCard,
-                                                                  authCard],
-                                                      alignment = ft.MainAxisAlignment.CENTER)],
-                                   alignment = ft.MainAxisAlignment.SPACE_AROUND,
-                                   expand = True)]))
+                        appbar = ft.AppBar(title = ft.Row(controls = [ft.Text(value = f'Welcome Back, {userInfo.value}!',
+                                                                              expand = True),
+                                                                      themeIcon]),
+                                           bgcolor = ft.colors.BLUE_ACCENT_400),
+                        controls = [ft.Column(controls = [ft.Row(controls = [storeCard,
+                                                                             historyCard,
+                                                                             authCard],
+                                              alignment = ft.MainAxisAlignment.CENTER)],
+                        alignment = ft.MainAxisAlignment.CENTER,
+                        expand = True)]))
             
         elif page.route == "/store":
-            cart = []
+            cartView = ft.ListView()
+            productsView = ft.ListView()
             products = []
-            vw_product_list = ft.GridView(expand=1,
-                                          runs_count=5,
-                                          max_extent=300,
-                                          spacing=5,
-                                          run_spacing=5)
-            
-            vw_total = ft.Text(f'P {0}',
-                               weight = ft.FontWeight.W_900,
-                               size = 30)
-
+            cart: list(CartItem) = []
             with open('products.txt') as f:
                 for line in f:
-                    id = line[0 : 5]
-                    name = line[5 : 20]
-                    name.replace(" ", "")
-                    name.replace("_", " ")
-                    price = float(line[20 : 30])
-                    stocks = int(line[30 : 35])
-                    image = line[35:]
-                    image.replace("\n", "")
-                    products.append(id, name, price, stocks, image)
+                    if '*' in line:
+                        continue
+                    id = line[0:5]
+                    name = line[5:20]
+                    name = name.replace(" ", "")
+                    name = name.replace("_", " ")
+                    price = float(line[20:30])
+                    stocks = int(line[30:40])
+                    image = line[40:].replace("/n", "")
+                    products.append(Product(id, name, price, stocks, image))
+
+            def add_to_cart(product: Product):
+                for item in cart:
+                    if item.product.name == product.name:
+                        cart[cart.index(item)].quantity += 1
+                        break
+                else:
+                    cart.append(CartItem(product, 1))
+
+            def remove_from_cart(product: Product):
+                cart.remove(product)
+
+            def show_products() -> ft.ListView:
+                productsView.controls = list(map(lambda product: ft.Container(bgcolor = ft.colors.GREEN_ACCENT_400,
+                                                                              content = ft.Row([ft.Text(product.name,
+                                                                                                        expand = True),
+                                                                                               ft.IconButton(icon = ft.icons.ADD_SHOPPING_CART,
+                                                                                                             on_click = lambda _: add_to_cart(product))])),
+                                                 products))
+                return productsView
             
-            def ItemCard(product: Product, on_click: Callable) -> ft.Control:
-                return ft.Container(on_click = lambda _: on_click(),
-                                    bgcolor = ft.colors.GREEN_ACCENT_700,
-                                    border_radius = 5,
-                                    padding = 20,
-                                    margin = 2,
-                                    content = ft.Column(horizontal_alignment = ft.CrossAxisAlignment.CENTER,
-                                                        alignment = ft.MainAxisAlignment.CENTER,
-                                                        controls = [ft.Image(src = product.image,
-                                                                             width = 150,
-                                                                             height = 150),
-                                                                    ft.Text(value = product.name,
-                                                                            weight = ft.FontWeight.W_900),
-                                                                    ft.Text(value = f'x {product.stocks}',
-                                                                            weight = ft.FontWeight.W_300),
-                                                                    ft.Text(value = f'P {product.price}',
-                                                                            weight = ft.FontWeight.W_400)]))
+            def show_cart():
+                cartView.controls = list(map(lambda item: ft.Container(bgcolor = ft.colors.YELLOW_ACCENT_400,
+                                                                       ))) # YOU ARE HERE... THIS IS FOR SHOWING THE CART ITEMS BELOW THE TOTAL THINGY BLAH BLAH
+                                                                            # WHAT YOU WANTED TO MAKE WAS A ROW WHICH HAS 2 SHIT ON IT, A TEXT WITH THE NAME AND QUANTITY IN CART AND BUTTON FOR EDITING QUANTITY
+                                                                            # YOU SHOULD ALSO MAKE A FUNCTION FOR THAT BUTTON THINGY.... AND REMEMBER TO COPY THE FORMAT IN SHOW_PRODUCTS FOR THIS FUNCTION
+                                                                            # OH AND REMIND YOURSELF TO RESEARCH HOW WE CAN MAKE THAT SMALL BORDER THINGY IN A DIFFERENT COLOR BECAUSE IDUNNO, THE OTHER ME SCREAMING
 
-            def on_item_click(product: Product):
-                pass
 
-            def show_products() -> ft.GridView:
-                cards = map(lambda x: ItemCard(product = x,
-                                                      on_click = lambda: on_item_click(product = x)),
-                                   products)
-                vw_product_list.controls = list(cards)
-                return vw_product_list
-
+            dueTotal = ft.Text(f'P {0}',
+                               weight = ft.FontWeight.W_700)
+            total = ft.Column(controls = [ft.Text('Total'),
+                                          dueTotal,
+                                          ft.Text('---------------------------------------------------',
+                                                  weight = ft.FontWeight.W_400)])
             page.views.append(
                 ft.View(
                     "/store",
-                    appbar = ft.AppBar(title = ft.Text('Store'),
+                    appbar = ft.AppBar(title = ft.Row(controls = [ft.Text('Store',
+                                                                          expand = True),
+                                                                  themeIcon]),
                                        leading = ft.IconButton(icon = ft.icons.ARROW_BACK,
                                                                on_click = lambda e: page.go('/main'))),
-                    controls = [ft.ResponsiveRow(vertical_alignment = ft.CrossAxisAlignment.STRETCH,
-                                                 controls = [ft.Column(col = 9,
-                                                                       controls = [show_products()]),
-                                                             ft.Column(col = 3,
-                                                                       horizontal_alignment = ft.CrossAxisAlignment.STRETCH,
-                                                                       controls = [ft.Column(controls = [ft.Text('TOTAL '),
-                                                                                                        vw_total,
-                                                                                                        ft.FilledButton('CHECKOUT',
-                                                                                                                        width = 1000)]),
-                                                                                   ft.Text('---------------------------------------------------')])])]))
+                    controls = [ft.Row(controls = [ft.Container(content = show_products(), expand = True),
+                                                   ft.Column(controls = [total,],
+                                                             horizontal_alignment = ft.CrossAxisAlignment.END)])]))
 
         elif page.route == "/transactions":
             page.go('/auth')
